@@ -8,7 +8,7 @@ source("generic_functions.R")
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-  
+
   # Application title
   titlePanel("KIDS23 TEAM7"),
   
@@ -16,16 +16,26 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       
-      verbatimTextOutput("text_output"),  
+      ################
+      # helper codes # 
+      ################
+      verbatimTextOutput("text_output"),   # instruction
+      # to hide error ,,,
+      tags$style(type="text/css",
+                 ".shiny-output-error { visibility: hidden; }",
+                 ".shiny-output-error:before { visibility: hidden; }"
+      ),
       
-      # Input
+      ##########
+      # inputs #
+      ##########
       radioButtons(inputId = "dataset",
                    label = "Sample numbers:",
                    choices = c("one sample", "multiple samples"),
                    selected = "''",
                    inline = TRUE,
       ),
-      
+
       # uploading files 
       conditionalPanel(
         ## case1: one sample
@@ -53,24 +63,29 @@ ui <- fluidPage(
                              "text/comma-separated-values,text/plain",
                              ".csv"))),
       
-      # assay type 
+      ##############
+      # assay type #
       selectInput(inputId = "assaytype",
                   label = "Assay type:",
                   choices = c("Spatial(visium)", "Akoya(phenoCycler)", "Vizgen(MERSCOPE)", "Nanostring(CosMx)"),
                   selected = ''),
     ),
     
-    # Push to analysis
+    #############
+    # mainPanel #
+    #############
     mainPanel(
       textOutput("text"),
       tableOutput("table"),
-      verbatimTextOutput("obj"),
-      verbatimTextOutput("text2"),
-      verbatimTextOutput("text3"),
-      
+
       tabsetPanel(
-        tabPanel("QC", 
-                 
+        tabPanel("Processing",
+                 verbatimTextOutput(c("obj","obj2")),
+                 # verbatimTextOutput("obj2"),
+                 verbatimTextOutput("obj3"),
+                 verbatimTextOutput("obj4"),
+                 ),
+        tabPanel("QC",
                  tableOutput(outputId = "qcplot1")),
         tabPanel("Analysis", plotOutput(outputId = "plot")),
         tabPanel("Visualization", verbatimTextOutput(outputId = "visualization"))
@@ -87,27 +102,25 @@ server <- function(input, output) {
   options(shiny.maxRequestSize = 1000 * 1024^2) # increase max upload size to 1000 MB
   output$text_output <- renderText({"Instructions:\n1.choose your sample number\n2.upload your files\n3.run your QC\n4.filtering cells"})
   
-  # Read CSV file (testing purpose)
-  # suppressWarnings(data <- reactive({
-  #   req(input$file1)
-  #   read.csv(input$file1$datapath, header = TRUE)
-  # }))
-  # output$table <- renderTable({
-  #   head(data())
-  # })
-  
   # using RDS
   # output$obj <- renderPrint(
   #   readRDS("/home/lead/Akoya/rds/Sample2_Group1_SeuratObj_sketch.rds")
   # )
 
-  # csv to Seurat object
+  # 1. csv to Seurat object
   seurat_object <- reactive({
-    csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)})
+      csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)})
+
+  output$obj <- renderPrint({
+    print(seurat_object())})
   
-  output$obj <- renderPrint(
-    print(seurat_object())
-  )
+  # seurat_object <- reactive({
+  #   csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)
+  #   output$obj <- renderPrint({
+  #     print(seurat_object())
+  #   })
+  #   seurat_object()
+  # })
   
   # seurat_object <- reactive({
   #   if(input$dataset == "one sample") {
@@ -121,34 +134,42 @@ server <- function(input, output) {
   #   }
   # }
   
-  # QC # 
+  # 2. QC... # 
   # qc_histogram <- reactive({RidgePlot(seurat_object, features = rownames(test)[1:10], ncol = 2, layer = 'counts') & xlab("")})
   # output$qcplot1 <- renderPlot({
   # qc_histogram()
   # })
   
   
-  # normalization and sketch  # 
+  # 3. normalization and sketch  # 
   skected <- reactive({
     norm_and_sketch(seurat_object())
   })
   
   # to checking
-  output$text2 <- renderPrint({
-    print(class(skected()))
+  output$obj2 <- renderPrint({
+    print(skected())
   })
   
-  # seurat_workflow # 
+  # 4. seurat_workflow # 
   processed_seurat <- reactive({
     (seurat_workflow(skected()))
   })
   
   # to checking 
-  output$text3 <- renderPrint({
+  output$obj3 <- renderPrint({
     print(processed_seurat())
   })
-
   
+  # 5. annotation # 
+  annotate_seurat <- reactive({
+    (annotate_cell_types())
+  })
+  
+  # to checking 
+  output$obj4 <- renderPrint({
+    print(annotate_seurat())
+  })
 }
 
 
