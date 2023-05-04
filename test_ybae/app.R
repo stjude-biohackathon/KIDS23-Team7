@@ -4,7 +4,7 @@ library(ggplot2)
 library(dplyr)  
 library(data.table)
 library(Seurat)
-source("csv_to_seurat.R")
+source("generic_functions.R")
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -64,8 +64,8 @@ ui <- fluidPage(
     mainPanel(
       textOutput("text"),
       tableOutput("table"),
-      textOutput("text2"),
       verbatimTextOutput("obj"),
+      verbatimTextOutput("text2"),
       
       tabsetPanel(
         tabPanel("QC", tableOutput(outputId = "qcplot1")),
@@ -93,44 +93,59 @@ server <- function(input, output) {
   #   head(data())
   # })
   
+  # using RDS
+  # output$obj <- renderPrint(
+  #   readRDS("/home/lead/Akoya/rds/Sample2_Group1_SeuratObj_sketch.rds")
+  # )
+
   # csv to Seurat object
-  # seurat_object <- reactive({
-  #   csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)})
-  
   seurat_object <- reactive({
-    if(input$dataset == "one sample") {
-      if(!is.null(input$file1) & !is.null(input$file2)) {
-        csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)
-      }
-    } else if(input$dataset == "multiple samples") {
-      if(!is.null(input$file3)) {
-        # code for multiple samples
-      }
-    }
-  })
+    csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)})
   
   output$obj <- renderPrint(
-    # read.csv(input$file2$datapath)
-    seurat_object()
+    print(seurat_object())
   )
   
-  # seurat_object
-  output$text <- renderText({
-    print(seurat_object())
-  })
+  # seurat_object <- reactive({
+  #   if(input$dataset == "one sample") {
+  #     if(!is.null(input$file1) & !is.null(input$file2)) {
+  #       csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)
+  #     }
+  #   } else if(input$dataset == "multiple samples") {
+  #     if(!is.null(input$file3)) {
+  #       # code for multiple samples
+  #     }
+  #   }
+  # }
   
+  # QC # 
   # qc_histogram <- reactive({RidgePlot(seurat_object, features = rownames(test)[1:10], ncol = 2, layer = 'counts') & xlab("")})
   # output$qcplot1 <- renderPlot({
   # qc_histogram()
   # })
   
-  # skected <- reactive({
-  #   norm_and_sketch(seurat_object())
-  # })
   
-  # output$text2 <- renderText({
-  #   print(skected())
+  # normalization and sketch  # 
+  skected <- reactive({
+    norm_and_sketch(seurat_object())
+  })
+  
+  # to checking
+  output$text2 <- renderPrint({
+    print(skected())
+  })
+  
+  # seurat_workflow # 
+  seurat_workflow <- reactive({
+    (seurat_workflow(skected))
+  })
+  
+  # to checking 
+  # output$text2 <- renderPrint({
+  #   print(seurat_workflow())
   # })
+
+  
 }
 
 
