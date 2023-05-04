@@ -84,17 +84,18 @@ server <- function(input, output) {
   output$text_output <- renderText({"Instructions:\n1.choose your sample number\n2.upload your files\n3.run your QC\n4.filtering cells"})
   
   # Read CSV file (testing purpose)
-  suppressWarnings(data <- reactive({
-    req(input$file1)
-    read.csv(input$file1$datapath, header = TRUE)
-  }))
-  output$table <- renderTable({
-    head(data())
-  })
+  # suppressWarnings(data <- reactive({
+  #   req(input$file1)
+  #   read.csv(input$file1$datapath, header = TRUE)
+  # }))
+  # output$table <- renderTable({
+  #   head(data())
+  # })
   
   # csv to Seurat object
   seurat_object <- reactive({
-    csv_to_seurat(input$file1$datapath, input$file2$datapath)})
+    csv_to_seurat(input$file1$datapath, input$file2$datapath)
+    print(csv_to_seurat())})
   
   output$text <- renderText({
     print(seurat_object())
@@ -105,13 +106,13 @@ server <- function(input, output) {
   # qc_histogram()
   # })
   
-  skected <- reactive({
-    norm_and_sketch(seurat_object())
-  })
+  # skected <- reactive({
+  #   norm_and_sketch(seurat_object())
+  # })
   
-  output$text2 <- renderText({
-    print(skected())
-  })
+  # output$text2 <- renderText({
+  #   print(skected())
+  # })
 }
 
 
