@@ -287,6 +287,27 @@ umap_int_gen
 
 
 
+# Image plot - interactively plot
+# choosing wich cell type to look at, separated with cluster
+ImagePlot_one_cell_type_inter <- function(obj, cell_type){
+  # Create new column for celltype+cluster label
+  obj@meta.data$cell_type_cluster <- paste0(obj@meta.data$customclassif, "_cluster_", obj@meta.data$seurat_clusters)
+  # Filter metadate based on one celltype (input)
+    only_one_cell_type <- filter(obj@meta.data, obj@meta.data$customclassif == cell_type)
+  # Replace seurat object metadata with only_one_cell_type metadata
+    obj@meta.data <- obj@meta.data[obj@meta.data$Object_ID %in% only_one_cell_type$Object_ID,]
+  # Plot it
+  plot <- ImageDimPlot(obj, group.by = "cell_type_cluster")
+  plot <- ggplotly(plot)
+  # plot = HoverLocator(plot = plot, 
+  # dark.theme = FALSE,
+  # information = FetchData(obj, vars = c("seurat_clusters", "customclassif", "nCount_matrix_expoya", "nFeature_matrix_expoya")))
+  
+  return(plot)
+}
+
+p <- ImagePlot_one_cell_type_inter(obj_celltype, cell_type = "Granulocytes")
+p
 
 ## Maycon/Felipe P. - end
 
