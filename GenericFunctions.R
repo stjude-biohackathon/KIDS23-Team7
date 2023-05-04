@@ -37,7 +37,7 @@ csv_to_seurat <- function(ExpressionMarker, MetaData, AssayType='Akoya', FOVName
 
 
 
-## Maycon - begin
+## Maycon/Felipe P. - begin
 ## Seurat object
 library(Seurat)
 library(dplyr)
@@ -249,7 +249,46 @@ UMAP_plot_celltype
 Image_plot_celltype = ImagePlotModule(obj_celltype, group_by_feature = "customclassif")
 Image_plot_celltype
 
-## Maycon - end
+
+
+
+### Interactive plotting
+
+# UMAP category labels - interactively plot
+dimPlotModule_interactive_cat <- function(seu_object, label = TRUE, group_by_feature) {
+  Idents(seu_object) = "customclassif"
+  plot <- DimPlot(seu_object, label = label, group.by = group_by_feature)
+  plot = HoverLocator(plot = plot, information = FetchData(seu_object, vars = c("seurat_clusters", "customclassif", "nCount_matrix_expoya", "nFeature_matrix_expoya")))
+  
+  return(plot)
+  
+}
+
+
+umap_int_cat = dimPlotModule_interactive_cat(seu_object = obj_celltype, 
+                         group_by_feature = "customclassif")
+umap_int_cat
+
+
+# UMAP gene expression - interactively plot
+dimPlotModule_interactive_gen <- function(seu_object, label = TRUE, feature_molecule, color_min, color_max) {
+  Idents(seu_object) = "customclassif"
+  plot <- FeaturePlot(seu_object, label = label, features = feature_molecule, cols = c(color_min, color_max)) 
+  plot = HoverLocator(plot = plot, information = FetchData(seu_object, vars = c("seurat_clusters", "customclassif", "nCount_matrix_expoya", "nFeature_matrix_expoya")))
+  
+  return(plot)
+  
+}
+
+
+umap_int_gen = dimPlotModule_interactive_gen(seu_object = obj_celltype,
+                                             feature_molecule = rownames(obj_celltype)[1], color_min = "white", color_max = "red")
+umap_int_gen
+
+
+
+
+## Maycon/Felipe P. - end
 
 
 
