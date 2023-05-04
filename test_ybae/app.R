@@ -66,9 +66,12 @@ ui <- fluidPage(
       tableOutput("table"),
       verbatimTextOutput("obj"),
       verbatimTextOutput("text2"),
+      verbatimTextOutput("text3"),
       
       tabsetPanel(
-        tabPanel("QC", tableOutput(outputId = "qcplot1")),
+        tabPanel("QC", 
+                 
+                 tableOutput(outputId = "qcplot1")),
         tabPanel("Analysis", plotOutput(outputId = "plot")),
         tabPanel("Visualization", verbatimTextOutput(outputId = "visualization"))
       )
@@ -132,18 +135,18 @@ server <- function(input, output) {
   
   # to checking
   output$text2 <- renderPrint({
-    print(skected())
+    print(class(skected()))
   })
   
   # seurat_workflow # 
-  seurat_workflow <- reactive({
-    (seurat_workflow(skected))
+  processed_seurat <- reactive({
+    (seurat_workflow(skected()))
   })
   
   # to checking 
-  # output$text2 <- renderPrint({
-  #   print(seurat_workflow())
-  # })
+  output$text3 <- renderPrint({
+    print(processed_seurat())
+  })
 
   
 }
