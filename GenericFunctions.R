@@ -74,7 +74,7 @@ seurat_workflow <- function(obj , NDims = 30, ClusterRes = c(0.3,0.5,1,1.5,2)) {
   
   obj <- RunPCA(obj, npcs = NDims)
   obj <- RunUMAP(obj, dims = 1:NDims)
-  obj <- RunTSNE(obj, dims = 1:NDims)
+  #obj <- RunTSNE(obj, dims = 1:NDims)
   obj <- FindNeighbors(obj, dims = 1:NDims)
   obj <- FindClusters(object = obj, resolution = ClusterRes, algorithm = 2)
   
@@ -84,7 +84,45 @@ seurat_workflow <- function(obj , NDims = 30, ClusterRes = c(0.3,0.5,1,1.5,2)) {
 
 
 
+## assumes the celltype table is a xlsx file with 3 columns: tissueType,cellName,geneSymbolmore1
 
+annotate_cell_types <- function(obj, celltype_file_path) {
+  # load packages
+  require(openxlsx);require(dplyr)
+  # load gene set preparation function
+  source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
+  # load cell type annotation function
+  source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
+  
+  celltype_table <- read.xlsx(celltype_file_path)
+  
+  gs_list <- strsplit(celltype_table$geneSymbolmore1, ',')
+  names(gs_list) <- celltype_table$cellName
+  
+  # get cell-type by cell matrix
+  es.max = sctype_score(scRNAseqData = obj@assays$sketch$scale.data, scaled = TRUE, 
+                        gs = gs_list, gs2 = NULL)
+  
+  # merge by cluster
+  md <- na.omit(obj@meta.data)
+  cL_resutls = do.call("rbind", lapply(unique(md$seurat_clusters), function(cl){
+    es.max.cl = sort(rowSums(es.max[ ,rownames(md[md$seurat_clusters==cl, ])]), decreasing = !0)
+    head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(md$seurat_clusters==cl)), 10)
+  }))
+  sctype_scores = cL_resutls %>% group_by(cluster) %>% top_n(n = 2, wt = scores)  
+  
+  # set low-confident (low ScType score) clusters to "unknown"
+  sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/5] = "Unknown"
+  print(sctype_scores[,1:3])
+  
+  obj@meta.data$CelltypePrediction = ""
+  for(j in unique(sctype_scores$cluster)){
+    cl_type = sctype_scores[sctype_scores$cluster==j,]; 
+    obj@meta.data$CelltypePrediction[obj@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+  }
+  
+  return(obj)
+}
 
 
 

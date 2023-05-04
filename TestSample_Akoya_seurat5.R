@@ -51,6 +51,6 @@ obj <- RunUMAP(object = obj, dims = 1:30)
 obj <- FindNeighbors(object = obj, dims = 1:30, verbose = FALSE)
 obj <- FindClusters(object = obj, resolution = 1, algorithm = 2)
 DimPlot(obj, label = T)
-ImageDimPlot(obj, size = 0.1, cols = 'glasbey')
+ImageDimPlot(obj, size = 0.05, cols = 'glasbey' , group.by = 'cell_subtyping_R2')
 
 
