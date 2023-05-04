@@ -267,7 +267,60 @@ umap_int_gen
 
 
 
-### To be reviewed ### ### To be reviewed ### ### To be reviewed ###
+# Image plot - interactively plot
+# choosing wich cell type to look at, separated with cluster
+# OBS: can't choose legends inside the label box on interactivly mode
+ImagePlot_one_cell_type_inter <- function(obj, cell_type){
+  # Create new column for celltype+cluster label
+  obj@meta.data$cell_type_cluster <- paste0(obj@meta.data$customclassif, "_cluster_", obj@meta.data$seurat_clusters)
+  # Filter metadate based on one celltype (input)
+    only_one_cell_type <- filter(obj@meta.data, obj@meta.data$customclassif == cell_type)
+  # Replace seurat object metadata with only_one_cell_type metadata
+    obj@meta.data <- obj@meta.data[obj@meta.data$Object_ID %in% only_one_cell_type$Object_ID,]
+  # Plot it
+  plot <- ImageDimPlot(obj, group.by = "cell_type_cluster")
+  plot <- ggplotly(plot)
+  # plot = HoverLocator(plot = plot, 
+  # dark.theme = FALSE,
+  # information = FetchData(obj, vars = c("seurat_clusters", "customclassif", "nCount_matrix_expoya", "nFeature_matrix_expoya")))
+  
+  return(plot)
+}
+
+p <- ImagePlot_one_cell_type_inter(Group1_SeuratObj_integrated, cell_type = "Granulocytes")
+p
+
+
+
+
+### Cell type proportion on integrated samples 
+Group1_SeuratObj_integrated <- readRDS("/home/lead/Akoya/rds/Group1_SeuratObj_integrated.rds")
+meta_G1 = data.frame(Group1_SeuratObj_integrated@meta.data)
+save(meta_G1, file = "/home/mmarcao/Group1_SeuratObj_integrated.metadata.rda")
+
+
+Group2_SeuratObj_integrated <- readRDS("/home/lead/Akoya/rds/Group2_SeuratObj_integrated.rds")
+meta_G2 = data.frame(Group2_SeuratObj_integrated@meta.data)
+save(meta_G2, file = "/home/mmarcao/Group2_SeuratObj_integrated.metadata.rda")
+
+
+dittoBarPlot(Group1_SeuratObj_integrated, "customclassif", group.by = "Sample")
+
+
+
+meta_G1$customclassif
+
+
+
+
+
+
+
+### Not well succeeded attempts ###
+### Not well succeeded attempts ###
+### Not well succeeded attempts ###
+
+### Can't run HoverLocator with ImageDimPlot ...
 
 # Image category labels - interactively plot
 ImagePlotModule_interactive_cat <- function(seu_object, group_by_feature) {
@@ -283,7 +336,7 @@ ImagePlotModule_interactive_cat <- function(seu_object, group_by_feature) {
 }
 
 image_int_cat = ImagePlotModule_interactive_cat(seu_object = obj_celltype, 
-                                             group_by_feature = "customclassif")
+                                                group_by_feature = "customclassif")
 image_int_cat
 
 # DO NOT RUN OTHERWISE IT WILL CRASH
@@ -301,86 +354,4 @@ SpatialFeaturePlot(object = obj_celltype, features = rownames(obj_celltype)[1], 
 
 dim(obj_celltype)
 obj_celltype@meta.data %>% dim()
-
-
-
-
-
-
-### Cell type proportion
-library(dittoSeq)
-dittoBarPlot(obj_celltype, "seurat_clusters", group.by = "customclassif")
-
-
-
-### Cell type-cluster Images 
-
-annotate_cell_types <- function(seurat_obj, celltype_file_path) {
-  # load packages
-  library(openxlsx)
-  # load gene set preparation function
-  source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
-  # load cell type annotation function
-  source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
-  
-  celltype_table <- read_xlsx(celltype_file_path)
-  
-  gs_list <- strsplit(celltype_table$geneSymbolmore1, ',')
-  names(gs_list) <- celltype_table$cellName
-  
-  # get cell-type by cell matrix
-  es.max = sctype_score(scRNAseqData = seurat_obj@assays$sketch$scale.data, scaled = TRUE, 
-                        gs = gs_list, gs2 = NULL)
-  
-  # merge by cluster
-  md <- na.omit(seurat_obj@meta.data)
-  cL_resutls = do.call("rbind", lapply(unique(md$seurat_clusters), function(cl){
-    es.max.cl = sort(rowSums(es.max[ ,rownames(md[md$seurat_clusters==cl, ])]), decreasing = !0)
-    head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(md$seurat_clusters==cl)), 10)
-  }))
-  sctype_scores = cL_resutls %>% group_by(cluster) %>% top_n(n = 2, wt = scores)  
-  
-  # set low-confident (low ScType score) clusters to "unknown"
-  sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/5] = "Unknown"
-  print(sctype_scores[,1:3])
-  
-  seurat_obj@meta.data$customclassif = ""
-  for(j in unique(sctype_scores$cluster)){
-    cl_type = sctype_scores[sctype_scores$cluster==j,]; 
-    seurat_obj@meta.data$customclassif[seurat_obj@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
-  }
-  seurat_obj@meta.data$cell_type_cluster <- paste(seurat_obj@meta.data$customclassif, "_cluster_", seurat_obj@meta.data$seurat_clusters)
-  return(seurat_obj)
-}
-
-#visualizing individual cell type
-
-#choosing wich cell type to look at, separated with cluster
-ImagePlot_one_cell_type <- function(obj, cell_type){
-  only_one_cell <- filter(obj@meta.data, obj@meta.data$customclassif == cell_type) 
-  obj@meta.data <- obj@meta.data[obj@meta.data$Object_ID %in% only_one_cell$Object_ID,]
-  plot <- ImageDimPlot(obj, group.by = "cell_type_cluster")
-  return(plot)
-}
-
-#choosing wich cell type to look at, separated with cluster - interactively plot
-ImagePlot_one_cell_type_inter <- function(obj, cell_type){
-  only_one_cell <- filter(obj@meta.data, obj@meta.data$customclassif == cell_type) 
-  obj@meta.data <- obj@meta.data[obj@meta.data$Object_ID %in% only_one_cell$Object_ID,]
-  plot <- ImageDimPlot(obj, group.by = "customclassif")
-  plot <- ggplotly(plot)
-  return(plot)
-}
-
-p <- ImagePlot_one_cell_type_inter(obj_processed, cell_type = "Granulocytes")
-p
-
-
-
-  
-
-
-
-
-
-
+### Can't run HoverLocator with ImageDimPlot ...
