@@ -6,10 +6,18 @@ library(ggplot2)
 library(data.table)
 library(readxl)
 library(install_github)
-install.packages(c("Rcpp", "devtools"), dependencies=TRUE)
-require(devtools)
-install_github("awalker89/openxlsx")
+#install.packages(c("Rcpp", "devtools"), dependencies=TRUE)
+#require(devtools)
+#install_github("awalker89/openxlsx")
 library(openxlsx)
+#install.packages("plotly")
+library(plotly)
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+  #install.packages("BiocManager")
+
+#BiocManager::install("dittoSeq")
+library(dittoSeq)
+
 
 options(future.globals.maxSize = 1e8)
 options(Seurat.object.assay.version = "v5")
@@ -49,6 +57,8 @@ meta_data = SpatialData$meta_data
 create_seurat_obj <- function(matrix_exp, meta_data) {
   
   # Re arrange pixel positions to match tissue
+  r <- 1/2
+  R <- (2 / sqrt(3)) * r
   meta_data$y <- meta_data$Y - min(meta_data$Y) + 1
   meta_data$x <- meta_data$X - min(meta_data$X) + 1
   meta_data$y <- meta_data$y * R * (3/2)
@@ -97,10 +107,10 @@ obj = create_seurat_obj(matrix_exp = SpatialData$matrix_exp, meta_data = Spatial
 
 
 
-
 # Define module for Seurat object processing
 processSeurat <- function(inputObj) {
   
+
   # Set default assay
   DefaultAssay(inputObj) <- "sketch"
   
@@ -122,8 +132,8 @@ obj_processed = processSeurat(inputObj = obj)
 
 
 
-obj_processed@meta.data$seurat_clusters
-# Plot 1
+
+# UMAP plot
 dimPlotModule <- function(seu_object, label = TRUE, group_by_feature) {
   
   plot <- DimPlot(seu_object, label = label, group.by = group_by_feature)
@@ -136,10 +146,10 @@ UMAP_plot = dimPlotModule(obj_processed, group_by_feature = "seurat_clusters")
 
 UMAP_plot
 
-DimPlot()
 
 
-# Plot 2
+
+# Image plot 
 ImagePlotModule <- function(seu_object, group_by_feature) {
   
   plot <- ImageDimPlot(seu_object, group.by = group_by_feature)
@@ -160,6 +170,150 @@ Image_plot
 
 seurat_obj = obj_processed
 celltype_file_path = "/home/lead/Akoya/BioHackathon_Samples/CellType_BrCa_Akoya_Table.xlsx"
+
+annotate_cell_types <- function(seurat_obj, celltype_file_path) {
+  # load packages
+  library(openxlsx)
+  # load gene set preparation function
+  source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
+  # load cell type annotation function
+  source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
+  # read cell type table
+  celltype_table <- read_xlsx(celltype_file_path)
+  
+  # prepare cell type input
+  gs_list <- strsplit(celltype_table$geneSymbolmore1, ',')
+  names(gs_list) <- celltype_table$cellName
+  
+  # cell type prediction
+  es.max = sctype_score(scRNAseqData = seurat_obj@assays$sketch$scale.data, scaled = TRUE, 
+                        gs = gs_list, gs2 = NULL)
+  
+  # merge by cluster
+  md <- na.omit(seurat_obj@meta.data)
+  cL_resutls = do.call("rbind", lapply(unique(md$seurat_clusters), function(cl){
+    es.max.cl = sort(rowSums(es.max[ ,rownames(md[md$seurat_clusters==cl, ])]), decreasing = !0)
+    head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(md$seurat_clusters==cl)), 10)
+  }))
+  sctype_scores = cL_resutls %>% group_by(cluster) %>% top_n(n = 2, wt = scores)  
+  
+  # set low-confident (low ScType score) clusters to "unknown"
+  sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/5] = "Unknown"
+  print(sctype_scores[,1:3])
+  
+  seurat_obj@meta.data$customclassif = ""
+  for(j in unique(sctype_scores$cluster)){
+    cl_type = sctype_scores[sctype_scores$cluster==j,]; 
+    seurat_obj@meta.data$customclassif[seurat_obj@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+  }
+  
+  return(seurat_obj)
+}
+
+obj_celltype <- annotate_cell_types(obj_processed, "/home/lead/Akoya/BioHackathon_Samples/CellType_BrCa_Akoya_Table.xlsx")
+
+#saveRDS(obj_celltype, file = "/home/mmarcao/seurat_obj.rds")
+obj_celltype = readRDS("/home/mmarcao/seurat_obj.rds")
+
+UMAP_plot_celltype = dimPlotModule(obj_celltype, group_by_feature = "customclassif") 
+UMAP_plot_celltype
+
+Image_plot_celltype = ImagePlotModule(obj_celltype, group_by_feature = "customclassif")
+Image_plot_celltype
+
+
+
+
+
+
+### Interactive plotting
+
+# UMAP category labels - interactively plot
+dimPlotModule_interactive_cat <- function(seu_object, label = TRUE, group_by_feature) {
+  Idents(seu_object) = "customclassif"
+  plot <- DimPlot(seu_object, label = label, group.by = group_by_feature)
+  plot = HoverLocator(plot = plot, information = FetchData(seu_object, vars = c("seurat_clusters", "customclassif", "nCount_matrix_expoya", "nFeature_matrix_expoya")))
+  
+  return(plot)
+  
+}
+
+
+umap_int_cat = dimPlotModule_interactive_cat(seu_object = obj_celltype, 
+                         group_by_feature = "customclassif")
+umap_int_cat
+
+
+umap_int_cat = dimPlotModule_interactive_cat(seu_object = Sample1_Group1_SeuratObj_sketch, 
+                                             group_by_feature = "customclassif")
+
+
+# UMAP gene expression - interactively plot
+dimPlotModule_interactive_gen <- function(seu_object, label = TRUE, feature_molecule, color_min, color_max) {
+  Idents(seu_object) = "customclassif"
+  plot <- FeaturePlot(seu_object, label = label, features = feature_molecule, cols = c(color_min, color_max)) 
+  plot = HoverLocator(plot = plot, information = FetchData(seu_object, vars = c("seurat_clusters", "customclassif", "nCount_matrix_expoya", "nFeature_matrix_expoya")))
+  
+  return(plot)
+  
+}
+
+
+umap_int_gen = dimPlotModule_interactive_gen(seu_object = obj_celltype,
+                                             feature_molecule = rownames(obj_celltype)[1], color_min = "white", color_max = "red")
+umap_int_gen
+
+
+
+
+
+### To be reviewed ### ### To be reviewed ### ### To be reviewed ###
+
+# Image category labels - interactively plot
+ImagePlotModule_interactive_cat <- function(seu_object, group_by_feature) {
+  
+  plot <- ImageDimPlot(seu_object, group.by = group_by_feature,
+                       dark.background = FALSE)
+  plot = HoverLocator(plot = plot, 
+                      dark.theme = FALSE,
+                      information = FetchData(seu_object, vars = c("seurat_clusters", "customclassif", "nCount_matrix_expoya", "nFeature_matrix_expoya")))
+  
+  return(plot)
+  
+}
+
+image_int_cat = ImagePlotModule_interactive_cat(seu_object = obj_celltype, 
+                                             group_by_feature = "customclassif")
+image_int_cat
+
+# DO NOT RUN OTHERWISE IT WILL CRASH
+#SpatialPlot(obj_celltype)
+
+
+plot <- ImageDimPlot(obj_celltype, group.by = "customclassif")
+
+#DefaultAssay(obj_celltype) <- "matrix_expoya"
+DefaultAssay(obj_celltype) <- "sketch"
+SpatialDimPlot(obj_celltype@assays$matrix_expoya, interactive = TRUE)
+obj_celltype@assays$matrix_expoya
+
+SpatialFeaturePlot(object = obj_celltype, features = rownames(obj_celltype)[1], alpha = c(0.1, 1), ncol = 3)
+
+dim(obj_celltype)
+obj_celltype@meta.data %>% dim()
+
+
+
+
+
+
+### Cell type proportion
+library(dittoSeq)
+dittoBarPlot(obj_celltype, "seurat_clusters", group.by = "customclassif")
+
+
+
+### Cell type-cluster Images 
 
 annotate_cell_types <- function(seurat_obj, celltype_file_path) {
   # load packages
@@ -195,19 +349,37 @@ annotate_cell_types <- function(seurat_obj, celltype_file_path) {
     cl_type = sctype_scores[sctype_scores$cluster==j,]; 
     seurat_obj@meta.data$customclassif[seurat_obj@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
   }
-  
+  seurat_obj@meta.data$cell_type_cluster <- paste(seurat_obj@meta.data$customclassif, "_cluster_", seurat_obj@meta.data$seurat_clusters)
   return(seurat_obj)
 }
 
-obj_celltype <- annotate_cell_types(obj_processed, "/home/lead/Akoya/BioHackathon_Samples/CellType_BrCa_Akoya_Table.xlsx")
+#visualizing individual cell type
+
+#choosing wich cell type to look at, separated with cluster
+ImagePlot_one_cell_type <- function(obj, cell_type){
+  only_one_cell <- filter(obj@meta.data, obj@meta.data$customclassif == cell_type) 
+  obj@meta.data <- obj@meta.data[obj@meta.data$Object_ID %in% only_one_cell$Object_ID,]
+  plot <- ImageDimPlot(obj, group.by = "cell_type_cluster")
+  return(plot)
+}
+
+#choosing wich cell type to look at, separated with cluster - interactively plot
+ImagePlot_one_cell_type_inter <- function(obj, cell_type){
+  only_one_cell <- filter(obj@meta.data, obj@meta.data$customclassif == cell_type) 
+  obj@meta.data <- obj@meta.data[obj@meta.data$Object_ID %in% only_one_cell$Object_ID,]
+  plot <- ImageDimPlot(obj, group.by = "customclassif")
+  plot <- ggplotly(plot)
+  return(plot)
+}
+
+p <- ImagePlot_one_cell_type_inter(obj_processed, cell_type = "Granulocytes")
+p
 
 
 
-UMAP_plot_celltype = dimPlotModule(obj_celltype, group_by_feature = "customclassif") 
-UMAP_plot_celltype
+  
 
-Image_plot_celltype = ImagePlotModule(obj_celltype, group_by_feature = "customclassif")
-Image_plot_celltype
+
 
 
 

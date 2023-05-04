@@ -93,19 +93,24 @@ server <- function(input, output) {
   # })
   
   # csv to Seurat object
+  # seurat_object <- reactive({
+  #   csv_to_seurat(input$file1$datapath, input$file2$datapath)
+  #   print(csv_to_seurat())})
+  # 
+  # output$text <- renderText({
+  #   print(seurat_object())
+  # })
+  # 
   seurat_object <- reactive({
-    csv_to_seurat(input$file1$datapath, input$file2$datapath)
-    print(csv_to_seurat())})
-  
-  output$text <- renderText({
+    readRDS('/home/lead/Akoya/rds/Sample2_Group2_SeuratObj_sketch.rds')
     print(seurat_object())
   })
   
-  # qc_histogram <- reactive({RidgePlot(seurat_object, features = rownames(test)[1:10], ncol = 2, layer = 'counts') & xlab("")})
-  # output$qcplot1 <- renderPlot({
-  # qc_histogram()
-  # })
-  
+  qc_histogram <- reactive({RidgePlot(seurat_object, features = rownames(seurat_object)[1:10], ncol = 2, layer = 'counts') & xlab("")})
+  output$qcplot1 <- renderPlot({
+  qc_histogram()
+  })
+
   # skected <- reactive({
   #   norm_and_sketch(seurat_object())
   # })
