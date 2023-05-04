@@ -38,7 +38,6 @@ csv_to_seurat <- function(ExpressionMarker, MetaData, AssayType='Akoya', FOVName
 
 ## Analysis pipeline #
 
-obj <- NormalizeData(obj, normalization.method = "CLR", margin = 2)
 norm_and_sketch <- function(obj, AssayType = 'Akoya', NCells = 50000) {
   
   #Normalization
@@ -61,38 +60,27 @@ norm_and_sketch <- function(obj, AssayType = 'Akoya', NCells = 50000) {
   return(obj)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+seurat_workflow <- function(obj , NDims = 30, ClusterRes = c(0.3,0.5,1,1.5,2)) {
+  
+  DefaultAssay(obj) <- "sketch"
+  
+  if(length(rownames(obj)) < 1000) {
+    obj <- ScaleData(obj, features = rownames(obj)) ## using all features to scale if panel is relatively small
+    VariableFeatures(obj) <- rownames(obj) # just use all of the features if n < 1000
+  } else {
+    obj <- FindSpatiallyVariableFeatures(obj) ## Calculates Moran's I for autocorrelation
+    obj <- ScaleData(obj, features = SpatiallyVariableFeatures(obj))
+  }
+  
+  obj <- RunPCA(obj, npcs = NDims)
+  obj <- RunUMAP(obj, dims = 1:NDims)
+  obj <- RunTSNE(obj, dims = 1:NDims)
+  obj <- FindNeighbors(obj, dims = 1:NDims)
+  obj <- FindClusters(object = obj, resolution = ClusterRes, algorithm = 2)
+  
+  return(obj)
+  
+}
 
 
 
