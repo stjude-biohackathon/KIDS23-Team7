@@ -57,7 +57,7 @@ ui <- fluidPage(
       selectInput(inputId = "assaytype",
                   label = "Assay type:",
                   choices = c("Spatial(visium)", "Akoya(phenoCycler)", "Vizgen(MERSCOPE)", "Nanostring(CosMx)"),
-                  selected = '"'),
+                  selected = ''),
     ),
     
     # Push to analysis
@@ -65,6 +65,7 @@ ui <- fluidPage(
       textOutput("text"),
       tableOutput("table"),
       textOutput("text2"),
+      verbatimTextOutput("obj"),
       
       tabsetPanel(
         tabPanel("QC", tableOutput(outputId = "qcplot1")),
@@ -93,10 +94,27 @@ server <- function(input, output) {
   # })
   
   # csv to Seurat object
-  seurat_object <- reactive({
-    csv_to_seurat(input$file1$datapath, input$file2$datapath)
-    print(csv_to_seurat())})
+  # seurat_object <- reactive({
+  #   csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)})
   
+  seurat_object <- reactive({
+    if(input$dataset == "one sample") {
+      if(!is.null(input$file1) & !is.null(input$file2)) {
+        csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)
+      }
+    } else if(input$dataset == "multiple samples") {
+      if(!is.null(input$file3)) {
+        # code for multiple samples
+      }
+    }
+  })
+  
+  output$obj <- renderPrint(
+    # read.csv(input$file2$datapath)
+    seurat_object()
+  )
+  
+  # seurat_object
   output$text <- renderText({
     print(seurat_object())
   })
