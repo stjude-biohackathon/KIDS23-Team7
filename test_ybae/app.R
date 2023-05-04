@@ -1,78 +1,119 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
+library(shinyWidgets) # 
 library(ggplot2) 
 library(dplyr)  
+library(data.table)
+library(Seurat)
+source("csv_to_seurat.R")
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-
-    # Application title
-    titlePanel("KIDS23 TEAM7"),
-
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-      sidebarPanel(
-        
-        # Input: Checkbox if file has header ----
-        #checkboxInput("sample number", "one sample", TRUE),
-        #checkboxInput("sample number", "multiple samples", TRUE),
-       radioButtons(inputId = "dataset",
-                    label = "Sample numbers:",
-                    choices = c("one sample", "multiple samples"),
-                    selected = "''"),
-        
-        # uploading files 
-        fileInput("file1", "Choose CSV File",
+  
+  # Application title
+  titlePanel("KIDS23 TEAM7"),
+  
+  # Sidebar with a slider input for number of bins 
+  sidebarLayout(
+    sidebarPanel(
+      
+      verbatimTextOutput("text_output"),  
+      
+      # Input
+      radioButtons(inputId = "dataset",
+                   label = "Sample numbers:",
+                   choices = c("one sample", "multiple samples"),
+                   selected = "''",
+                   inline = TRUE,
+      ),
+      
+      # uploading files 
+      conditionalPanel(
+        ## case1: one sample
+        condition = "input.dataset == 'one sample'",
+        fileInput("file1", "Choose matrix data (csv):",
                   multiple = TRUE,
+                  buttonLabel = "Upload...",
                   accept = c("text/csv",
                              "text/comma-separated-values,text/plain",
                              ".csv")),
-        
-        # assay type 
-        selectInput(inputId = "dataset",
-                    label = "Assay type:",
-                    choices = c("akoya", "visium", "vizgen"),
-                    selected = '"'),
-        
-        sliderInput(inputId = "obs",
-                    label = "Number of observations to show:",
-                    min = 1, max = 10, value = 5)
+        fileInput("file2", "Choose meta data (csv):",
+                  multiple = TRUE,
+                  buttonLabel = "Upload...",
+                  accept = c("text/csv",
+                             "text/comma-separated-values,text/plain",
+                             ".csv"))
       ),
+      ## case2: multiple samples 
+      conditionalPanel(
+        condition = "input.dataset == 'multiple samples'",
+        fileInput("file3", "Choose your File (zip):",
+                  multiple = TRUE,
+                  buttonLabel = "Upload...",
+                  accept = c("text/csv",
+                             "text/comma-separated-values,text/plain",
+                             ".csv"))),
       
+      # assay type 
+      selectInput(inputId = "assaytype",
+                  label = "Assay type:",
+                  choices = c("Spatial(visium)", "Akoya(phenoCycler)", "Vizgen(MERSCOPE)", "Nanostring(CosMx)"),
+                  selected = '"'),
+    ),
+    
+    # Push to analysis
+    mainPanel(
+      textOutput("text"),
+      tableOutput("table"),
+      textOutput("text2"),
       
-      
-      mainPanel(
-        tabsetPanel(
-          tabPanel("Table", tableOutput(outputId = "table")),
-          tabPanel("Plot", plotOutput(outputId = "plot")),
-          tabPanel("Summary", verbatimTextOutput(outputId = "summary"))
-        )
+      tabsetPanel(
+        tabPanel("QC", tableOutput(outputId = "qcplot1")),
+        tabPanel("Analysis", plotOutput(outputId = "plot")),
+        tabPanel("Visualization", verbatimTextOutput(outputId = "visualization"))
       )
     )
+    
+  )
 )
+
+
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
-    })
+  options(shiny.maxRequestSize = 1000 * 1024^2) # increase max upload size to 1000 MB
+  output$text_output <- renderText({"Instructions:\n1.choose your sample number\n2.upload your files\n3.run your QC\n4.filtering cells"})
+  
+  # Read CSV file (testing purpose)
+  suppressWarnings(data <- reactive({
+    req(input$file1)
+    read.csv(input$file1$datapath, header = TRUE)
+  }))
+  output$table <- renderTable({
+    head(data())
+  })
+  
+  # csv to Seurat object
+  seurat_object <- reactive({
+    csv_to_seurat(input$file1$datapath, input$file2$datapath)})
+  
+  output$text <- renderText({
+    print(seurat_object())
+  })
+  
+  # qc_histogram <- reactive({RidgePlot(seurat_object, features = rownames(test)[1:10], ncol = 2, layer = 'counts') & xlab("")})
+  # output$qcplot1 <- renderPlot({
+  # qc_histogram()
+  # })
+  
+  skected <- reactive({
+    norm_and_sketch(seurat_object())
+  })
+  
+  output$text2 <- renderText({
+    print(skected())
+  })
 }
+
 
 # Run the application 
 shinyApp(ui = ui, server = server)
