@@ -1,0 +1,134 @@
+#remotes::install_github("bnprks/BPCells")
+
+library(Seurat)
+library(BPCells)
+library(ggplot2)
+library(data.table)
+
+options(future.globals.maxSize = 1e8)
+options(Seurat.object.assay.version = "v5")
+
+start.time <- Sys.time()
+
+
+
+ak <- fread('BioHackathon_Samples/Sample2_Group2_MarkerExpression.csv', data.table = F)
+rownames(ak) <- ak$Row; ak <- ak[, -1]
+ak_meta <- fread('BioHackathon_Samples/Sample2_Group2_MetaData.csv')
+
+##Re arrange pixel positions to match tissue
+r <- 1/2
+R <- (2 / sqrt(3)) * r
+ak_meta$y <- ak_meta$Y - min(ak_meta$Y) + 1
+ak_meta$x <- ak_meta$X - min(ak_meta$X) + 1
+ak_meta$y <- ak_meta$y * R * (3/2)
+ak_meta$x <- (ak_meta$x + 1) / 2
+ak_meta$y <- -ak_meta$y
+
+centroids <- data.frame(x= ak_meta$y,
+                        y = ak_meta$x,
+                        cell = ak_meta$Object_ID)
+
+
+mtx <- t(ak)
+mtx <- as.sparse(mtx)
+
+obj <- CreateSeuratObject(
+  counts = mtx,
+  assay = 'Akoya',
+  meta.data = ak_meta
+)
+
+
+format(object.size(obj), units = "Mb")
+
+
+coords <- suppressWarnings(expr = CreateFOV(
+  coords = centroids,
+  type = 'centroids',
+  key = 'Sample2_Group2',
+  assay = 'Akoya'
+))
+
+suppressWarnings(expr = obj[['Sample2_Group2']] <- coords) # add image to seurat object
+
+obj <- obj[-1, ] ## remove DAPI channel 
+
+
+obj <- NormalizeData(obj, normalization.method = "CLR", margin = 2)
+#obj <- FindVariableFeatures(obj)
+obj <- SketchData(
+  object = obj,
+  ncells = 50000,
+  method = "LeverageScore",
+  sketched.assay = "sketch", verbose = T,
+)
+
+# switch to analyzing the full dataset (on-disk)
+#DefaultAssay(obj) <- "RNA"
+# switch to analyzing the sketched dataset (in-memory)
+DefaultAssay(obj) <- "sketch"
+
+
+obj <- ScaleData(obj)
+VariableFeatures(obj) <- rownames(obj)  # since the panel is small, treat all features as variable.
+obj <- RunPCA(object = obj, npcs = 30)
+obj <- RunUMAP(object = obj, dims = 1:30)
+obj <- FindNeighbors(object = obj, dims = 1:30, verbose = FALSE)
+obj <- FindClusters(object = obj, resolution = 1, algorithm = 2)
+
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+
+
+##using sc-type
+# load gene set preparation function
+source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
+# load cell type annotation function
+source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
+
+celltype_table <- read_xlsx('/home/lead/Akoya/BioHackathon_Samples/CellType_BrCa_Akoya_Table.xlsx')
+
+
+gs_list <- strsplit(celltype_table$geneSymbolmore1, ',')
+names(gs_list) <- celltype_table$cellName
+
+
+
+# get cell-type by cell matrix
+es.max = sctype_score(scRNAseqData = obj@assays$sketch$scale.data, scaled = TRUE, 
+                      gs = gs_list, gs2 = NULL)
+
+
+# merge by cluster
+md <- na.omit(obj@meta.data)
+cL_resutls = do.call("rbind", lapply(unique(md$seurat_clusters), function(cl){
+  es.max.cl = sort(rowSums(es.max[ ,rownames(md[md$seurat_clusters==cl, ])]), decreasing = !0)
+  head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(md$seurat_clusters==cl)), 10)
+}))
+sctype_scores = cL_resutls %>% group_by(cluster) %>% top_n(n = 2, wt = scores)  
+
+# set low-confident (low ScType score) clusters to "unknown"
+sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/5] = "Unknown"
+print(sctype_scores[,1:3])
+
+obj@meta.data$customclassif = ""
+for(j in unique(sctype_scores$cluster)){
+  cl_type = sctype_scores[sctype_scores$cluster==j,]; 
+  obj@meta.data$customclassif[obj@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+}
+DimPlot(obj, group.by = 'customclassif', label=T)
+
+RidgePlot(obj, features = 'Pan-Cytokeratin', group.by = 'customclassif', layer = 'scale.data')
+
+
+
+
+
+
+
+
+
