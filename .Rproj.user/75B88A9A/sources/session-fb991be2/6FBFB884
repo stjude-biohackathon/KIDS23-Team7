@@ -1,0 +1,28 @@
+{
+    "id": "6FBFB884",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1683143485040.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "id": "87dff90f70674cc7a01b44bf911ce812",
+        "name": "obj",
+        "title": "obj",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 48,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1683143485040,
+    "read_only": false,
+    "read_only_alternatives": []
+}
