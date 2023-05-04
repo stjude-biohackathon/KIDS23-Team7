@@ -38,7 +38,8 @@ csv_to_seurat <- function(ExpressionMarker, MetaData, AssayType='Akoya', FOVName
 
 
 ## Maycon/Felipe P. - begin
-## Seurat object
+
+# Packages
 library(Seurat)
 library(dplyr)
 library(BPCells)
@@ -46,10 +47,18 @@ library(ggplot2)
 library(data.table)
 library(readxl)
 library(install_github)
-install.packages(c("Rcpp", "devtools"), dependencies=TRUE)
-require(devtools)
-install_github("awalker89/openxlsx")
+#install.packages(c("Rcpp", "devtools"), dependencies=TRUE)
+#require(devtools)
+#install_github("awalker89/openxlsx")
 library(openxlsx)
+#install.packages("plotly")
+library(plotly)
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+  #install.packages("BiocManager")
+
+#BiocManager::install("dittoSeq")
+library(dittoSeq)
+
 
 options(future.globals.maxSize = 1e8)
 options(Seurat.object.assay.version = "v5")
@@ -89,6 +98,8 @@ meta_data = SpatialData$meta_data
 create_seurat_obj <- function(matrix_exp, meta_data) {
   
   # Re arrange pixel positions to match tissue
+  r <- 1/2
+  R <- (2 / sqrt(3)) * r
   meta_data$y <- meta_data$Y - min(meta_data$Y) + 1
   meta_data$x <- meta_data$X - min(meta_data$X) + 1
   meta_data$y <- meta_data$y * R * (3/2)
@@ -137,10 +148,10 @@ obj = create_seurat_obj(matrix_exp = SpatialData$matrix_exp, meta_data = Spatial
 
 
 
-
 # Define module for Seurat object processing
 processSeurat <- function(inputObj) {
   
+
   # Set default assay
   DefaultAssay(inputObj) <- "sketch"
   
@@ -162,8 +173,8 @@ obj_processed = processSeurat(inputObj = obj)
 
 
 
-obj_processed@meta.data$seurat_clusters
-# Plot 1
+
+# UMAP plot
 dimPlotModule <- function(seu_object, label = TRUE, group_by_feature) {
   
   plot <- DimPlot(seu_object, label = label, group.by = group_by_feature)
@@ -176,10 +187,10 @@ UMAP_plot = dimPlotModule(obj_processed, group_by_feature = "seurat_clusters")
 
 UMAP_plot
 
-DimPlot()
 
 
-# Plot 2
+
+# Image plot 
 ImagePlotModule <- function(seu_object, group_by_feature) {
   
   plot <- ImageDimPlot(seu_object, group.by = group_by_feature)
@@ -208,13 +219,14 @@ annotate_cell_types <- function(seurat_obj, celltype_file_path) {
   source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
   # load cell type annotation function
   source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
-  
+  # read cell type table
   celltype_table <- read_xlsx(celltype_file_path)
   
+  # prepare cell type input
   gs_list <- strsplit(celltype_table$geneSymbolmore1, ',')
   names(gs_list) <- celltype_table$cellName
   
-  # get cell-type by cell matrix
+  # cell type prediction
   es.max = sctype_score(scRNAseqData = seurat_obj@assays$sketch$scale.data, scaled = TRUE, 
                         gs = gs_list, gs2 = NULL)
   
@@ -240,6 +252,7 @@ annotate_cell_types <- function(seurat_obj, celltype_file_path) {
 }
 
 obj_celltype <- annotate_cell_types(obj_processed, "/home/lead/Akoya/BioHackathon_Samples/CellType_BrCa_Akoya_Table.xlsx")
+
 
 
 
