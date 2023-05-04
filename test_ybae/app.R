@@ -86,7 +86,9 @@ ui <- fluidPage(
                  verbatimTextOutput("obj4"),
                  ),
         tabPanel("QC",
-                 tableOutput(outputId = "qcplot1")),
+          plotOutput(outputId = "qc_violin"),
+          plotOutput(outputId = "qc_histogram")
+          ),
         tabPanel("Analysis", plotOutput(outputId = "plot")),
         tabPanel("Visualization", verbatimTextOutput(outputId = "visualization"))
       )
@@ -109,7 +111,10 @@ server <- function(input, output) {
 
   # 1. csv to Seurat object
   seurat_object <- reactive({
-      csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)})
+    req(input$file1)
+    req(input$file2)
+    csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)
+  })
 
   output$obj <- renderPrint({
     print(seurat_object())})
@@ -169,6 +174,17 @@ server <- function(input, output) {
   # to checking 
   output$obj4 <- renderPrint({
     print(annotate_seurat())
+  })
+  
+  output$qc_violin = renderPlot({
+    AssayType <- 'Akoya'
+    VlnPlot(seurat_object(), features = c(paste0('nCount_', AssayType),
+                                          paste0('nFeature_', AssayType)), pt.size = 0)
+  })
+  
+  output$qc_histogram = renderPlot({
+    obj = seurat_object()
+    RidgePlot(obj, features = rownames(obj)[1:10], ncol = 2, layer = 'counts') & xlab("")
   })
 }
 
