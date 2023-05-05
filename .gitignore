@@ -2,13 +2,15 @@
 .Rhistory
 .RData
 .Ruserdata
-.rds
+*.rds
 csv_to_seurat.R
 generic_functions.R
 test.R
 .Rproj.user/*
 /backup
+felipe.txt
 KIDS23.Rproj 
+KIDS23-Team7.Rproj
 test.R
 test_MarkerExpression.csv
 test_ybae/.app.R.swp
