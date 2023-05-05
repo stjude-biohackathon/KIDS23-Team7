@@ -453,6 +453,9 @@ barplot_proportion_interactive(G2_propCells_df, title = "Group2", xname = "Sampl
 
 
 #scatter plot FC pvalue interactive
+# load plot_FC_pvalue df
+load("/home/mmarcao/statistics/Group1_Group2_obj_to_scatterplot_FoldChange_stats.rda")
+
 scatterplot_FC_pval_interactive <- function(plot_FC_pvalue){
  plot <- ggplot(plot_FC_pvalue, aes(x = FoldChange, y = pvalue_log10, color = comparison, label = comparison)) + 
     geom_point(alpha = 1) +
