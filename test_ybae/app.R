@@ -65,10 +65,16 @@ ui <- fluidPage(
       
       ##############
       # assay type #
+      ##############
       selectInput(inputId = "assaytype",
                   label = "Assay type:",
                   choices = c("Spatial(visium)", "Akoya(phenoCycler)", "Vizgen(MERSCOPE)", "Nanostring(CosMx)"),
                   selected = ''),
+      
+      
+      # selectInput("selected_feature", "Select a feature", choices = rownames(seurat_object()))
+     
+      
     ),
     
     #############
@@ -87,7 +93,8 @@ ui <- fluidPage(
                  ),
         tabPanel("QC",
           plotOutput(outputId = "qc_violin"),
-          plotOutput(outputId = "qc_histogram")
+          uiOutput("gene_dropdown"),
+          plotOutput(outputId = "qc_histogram"),
           ),
         tabPanel("Analysis", plotOutput(outputId = "plot")),
         tabPanel("Visualization", verbatimTextOutput(outputId = "visualization"))
@@ -100,7 +107,7 @@ ui <- fluidPage(
 
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
   options(shiny.maxRequestSize = 1000 * 1024^2) # increase max upload size to 1000 MB
   output$text_output <- renderText({"Instructions:\n1.choose your sample number\n2.upload your files\n3.run your QC\n4.filtering cells"})
   
@@ -115,18 +122,10 @@ server <- function(input, output) {
     req(input$file2)
     csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)
   })
-
+  
   output$obj <- renderPrint({
     print(seurat_object())})
-  
-  # seurat_object <- reactive({
-  #   csv_to_seurat(ExpressionMarker = input$file1$datapath, MetaData = input$file2$datapath)
-  #   output$obj <- renderPrint({
-  #     print(seurat_object())
-  #   })
-  #   seurat_object()
-  # })
-  
+
   # seurat_object <- reactive({
   #   if(input$dataset == "one sample") {
   #     if(!is.null(input$file1) & !is.null(input$file2)) {
@@ -139,12 +138,25 @@ server <- function(input, output) {
   #   }
   # }
   
-  # 2. QC... # 
-  # qc_histogram <- reactive({RidgePlot(seurat_object, features = rownames(test)[1:10], ncol = 2, layer = 'counts') & xlab("")})
-  # output$qcplot1 <- renderPlot({
-  # qc_histogram()
-  # })
   
+  # 2. QC # 
+  output$qc_violin = renderPlot({
+    AssayType <- 'Akoya'
+    req(seurat_object())
+    VlnPlot(seurat_object(), features = c(paste0('nCount_', AssayType),
+                                          paste0('nFeature_', AssayType)), pt.size = 0)
+  })
+
+  # dropdown genes
+  output$gene_dropdown <- renderUI({
+    genes <- rownames(seurat_object())
+    selectInput(inputId = "gene", label = "Select Gene", choices = genes)
+  })
+  
+  output$qc_histogram = renderPlot({
+    obj = seurat_object()
+    RidgePlot(obj, features = input$gene, ncol = 2, layer = 'counts') & xlab("")
+  })
   
   # 3. normalization and sketch  # 
   skected <- reactive({
@@ -176,16 +188,7 @@ server <- function(input, output) {
     print(annotate_seurat())
   })
   
-  output$qc_violin = renderPlot({
-    AssayType <- 'Akoya'
-    VlnPlot(seurat_object(), features = c(paste0('nCount_', AssayType),
-                                          paste0('nFeature_', AssayType)), pt.size = 0)
-  })
-  
-  output$qc_histogram = renderPlot({
-    obj = seurat_object()
-    RidgePlot(obj, features = rownames(obj)[1:10], ncol = 2, layer = 'counts') & xlab("")
-  })
+
 }
 
 
