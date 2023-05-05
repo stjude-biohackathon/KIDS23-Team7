@@ -457,7 +457,9 @@ barplot_proportion_interactive(G2_propCells_df, title = "Group2", xname = "Sampl
 load("/home/mmarcao/statistics/Group1_Group2_obj_to_scatterplot_FoldChange_stats.rda")
 
 scatterplot_FC_pval_interactive <- function(plot_FC_pvalue){
- plot <- ggplot(plot_FC_pvalue, aes(x = FoldChange, y = pvalue_log10, color = comparison, label = comparison)) + 
+  plot_FC_pvalue$FoldChange <- round(plot_FC_pvalue$FoldChange, digits = 2)
+  plot_FC_pvalue$pvalue_log10 <- round(plot_FC_pvalue$pvalue_log10, digits = 2)
+  plot <- ggplot(plot_FC_pvalue, aes(x = FoldChange, y = pvalue_log10, color = comparison, label = comparison)) + 
     geom_point(alpha = 1) +
     #scale_fill_manual(values = jet.colors(2)) +
     scale_color_manual(values = jet.colors(length(as.vector(unique(factor(plot_FC_pvalue$comparison)))))) +
@@ -466,8 +468,8 @@ scatterplot_FC_pval_interactive <- function(plot_FC_pvalue){
     geom_label_repel(max.overlaps = getOption("ggrepel.max.overlaps", default = 100)) +
     ggtitle("<---- Group2         Group1 ---->") +
     theme_classic() 
-    plot <- ggplotly(plot)
-    return(plot)
+  plot <- ggplotly(plot, tooltip = c("FoldChange", "pvalue_log10", "color"))
+  return(plot)
 }
 
 scatterplot_FC_pval_interactive(plot_FC_pvalue)
