@@ -411,7 +411,7 @@ library(ggplot2); theme_set(theme_classic())
 ggplot(plot_FC_pvalue, aes(x = FoldChange, y = pvalue_log10, color = comparison, label = comparison)) + 
   geom_point(alpha = 1) +
   #scale_fill_manual(values = jet.colors(2)) +
-  scale_color_manual(values = jet.colors(length(celltypes_vec))) +
+  scale_color_manual(values = jet.colors(length(as.vector(unique(factor(plot_FC_pvalue$comparison)))))) +
   #scale_size(range = c(1,10)) +
   labs(x = "FoldChange ", y = "-log10(pvalue)", color = "comparison") +
   geom_label_repel(max.overlaps = getOption("ggrepel.max.overlaps", default = 100)) +
