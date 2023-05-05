@@ -5,7 +5,7 @@ library(dplyr)
 library(data.table)
 library(Seurat)
 library(plotly)
-source("~/KIDS2/GenericFunctions.R")
+source("../GenericFunctions.R")
 Sys.setenv(plotly_username = "plotly_name")
 
 
@@ -142,7 +142,12 @@ server <- function(input, output) {
   # using RDS
   seurat_object <- reactive({
     # req(file.exists("/home/lead/Akoya/rds/Sample2_Group2_SeuratObj_sketch.rds"))
-    readRDS("/home/ybae/KIDS2/test_annoated.rds")
+    fname = "/home/ybae/KIDS2/test_annoated.rds"
+
+    if (!file.exists(fname)){
+        fname = "~/test_annoated.rds"
+    }
+    readRDS(fname)
   })
   
 
@@ -176,6 +181,8 @@ server <- function(input, output) {
   })
   
   output$qc_histogram = renderPlot({
+    req(seurat_object())
+    req(input$gene)
     obj = seurat_object()
     Idents(obj) = "CelltypePrediction"
     RidgePlot(obj, features = input$gene, ncol = 2, layer = 'counts') & xlab("")
