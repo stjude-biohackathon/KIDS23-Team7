@@ -423,3 +423,48 @@ save(plot_FC_pvalue, file = "/home/mmarcao/statistics/Group1_Group2_obj_to_scatt
 
 
 
+#barplot function interactive plot
+#load df proportion of cells
+load("/home/mmarcao/statistics/Group1_obj_to_barplot_stats.rda")
+G1_propCells_df = propCells_df
+
+load("/home/mmarcao/statistics/Group2_obj_to_barplot_stats.rda")
+G2_propCells_df = propCells_df
+
+
+barplot_proportion_interactive <- function(df, title, xname, yname){
+  df$propCells <- (round(df$propCells, digits = 4))*100
+  plot <- ggplot(df, aes(x=sample, y=propCells, fill=celltype_cat)) +
+    scale_fill_manual(values = jet.colors(length(unique(df$celltype_cat))), name="Cell types") +
+    geom_bar(stat="identity") +
+    labs(x = xname, y = yname) +
+    theme(axis.title.x = element_text(colour="black", size = 12, vjust=-1), 
+          axis.title.y = element_text(colour="black", size = 12), 
+          axis.text.x = element_text(size = 12)) + 
+    ggtitle(title) +
+    theme_classic()
+  #plot <- ggplotly(plot, tooltip = c("sample", "propCells", "celltype_cat"))
+  plot <- ggplotly(plot, tooltip = c("propCells", "celltype_cat"))
+  return(plot)
+}
+#ploting for each group
+barplot_proportion_interactive(G1_propCells_df, title = "Group1", xname = "Sample", yname = "Cell Proportion (%)")
+barplot_proportion_interactive(G2_propCells_df, title = "Group2", xname = "Sample", yname = "Cell Proportion (%)")
+
+
+#scatter plot FC pvalue interactive
+scatterplot_FC_pval_interactive <- function(plot_FC_pvalue){
+ plot <- ggplot(plot_FC_pvalue, aes(x = FoldChange, y = pvalue_log10, color = comparison, label = comparison)) + 
+    geom_point(alpha = 1) +
+    #scale_fill_manual(values = jet.colors(2)) +
+    scale_color_manual(values = jet.colors(length(as.vector(unique(factor(plot_FC_pvalue$comparison)))))) +
+    #scale_size(range = c(1,10)) +
+    labs(x = "FoldChange ", y = "-log10(pvalue)", color = "comparison") +
+    geom_label_repel(max.overlaps = getOption("ggrepel.max.overlaps", default = 100)) +
+    ggtitle("<---- Group2         Group1 ---->") +
+    theme_classic() 
+    plot <- ggplotly(plot)
+    return(plot)
+}
+
+scatterplot_FC_pval_interactive(plot_FC_pvalue)
