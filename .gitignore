@@ -1,8 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
 .rds
 csv_to_seurat.R
 generic_functions.R
 test.R
-.Rproj.user/
+.Rproj.user/*
 /backup
 KIDS23.Rproj 
 test.R
@@ -12,5 +16,4 @@ test_ybae/KIDS23.Rproj
 test_ybae/csv_to_seurat.R
 test_ybae/generic_functions.R
 test_ybae/test.R
-test_ybae/test_MarkerExpression.csv
-test_ybae/test_MeataData.csv
+
