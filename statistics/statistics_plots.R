@@ -1,5 +1,30 @@
 ### Statistics - Cell Proportion Between Samples ###
 
+# Packages - there're more than necessary 
+library(Seurat)
+library(dplyr)
+library(BPCells)
+library(ggplot2)
+library(data.table)
+library(readxl)
+library(install_github)
+#install.packages(c("Rcpp", "devtools"), dependencies=TRUE)
+#require(devtools)
+#install_github("awalker89/openxlsx")
+library(openxlsx)
+#install.packages("plotly")
+library(plotly)
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+  #install.packages("BiocManager")
+
+#BiocManager::install("dittoSeq")
+library(dittoSeq)
+#install.packages('matlab')
+library(matlab)
+library(ggrepel)
+
+
+
 ###** GROUP 1 **###
 
 # Load metadata
