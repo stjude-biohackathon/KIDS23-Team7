@@ -5,7 +5,8 @@ library(dplyr)
 library(data.table)
 library(Seurat)
 library(plotly)
-source("../GenericFunctions.R")
+# library(base64encode)
+source("~/KIDS2/GenericFunctions.R")
 Sys.setenv(plotly_username = "plotly_name")
 
 
@@ -27,7 +28,8 @@ ui <- fluidPage(
       tags$style(type="text/css",
                  ".shiny-output-error { visibility: hidden; }",
                  ".shiny-output-error:before { visibility: hidden; }"
-      ),
+      ),  
+
       
       ##########
       # inputs #
@@ -97,9 +99,22 @@ ui <- fluidPage(
           uiOutput("gene_dropdown"),
           plotOutput(outputId = "qc_histogram"),
           ),
-        tabPanel("Analysis", plotOutput(outputId = "plot")),
-        tabPanel("Visualization",  plotlyOutput(outputId = "cell_annotation",height = 800, width = 1200)),
-        tabPanel("STAT", verbatimTextOutput(outputId = "stat"))
+        # tabPanel("Analysis", plotOutput(outputId = "plot")),
+        
+        # tabPanel("Visualization",  
+        #          fluidRow(
+        #            column(width = 8, plotlyOutput(outputId = "cell_annotation", height = 700, width = "100%")),
+        #            column(width = 4, img(src='/home/ybae/KIDS2/www/dimplot.png', align = "right"))
+        #          )
+        # ),
+        
+        tabPanel("Visualization1",
+                 plotOutput(outputId = "cell_annotation_split", height = 800 ),
+                 ),
+        tabPanel("Visualization2",
+                 plotlyOutput(outputId = "cell_annotation",height = 700, width = "100%"),
+        ),
+        tabPanel("STAT", plotOutput(outputId = "stat"), height = 800, width = 400)
       )
     )
     
@@ -110,8 +125,8 @@ ui <- fluidPage(
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-  options(shiny.maxRequestSize = 1000 * 1024^2) # increase max upload size to 1000 MB
-  output$text_output <- renderText({"Instructions:\n1.choose your sample number\n2.upload your files\n3.run your data\n4.filtering cells..."})
+  options(shiny.maxRequestSize = 1000 * 1024^2) # increase max upload size to 1000 MBs
+  output$text_output <- renderText({"Instructions:\n1.choose your sample number\n2.upload your files\n3.run your data\n4.filtering cells...\n5.Visualize reactively"})
 
   # 1. csv to Seurat object
   # seurat_object <- reactive({
@@ -142,12 +157,7 @@ server <- function(input, output) {
   # using RDS
   seurat_object <- reactive({
     # req(file.exists("/home/lead/Akoya/rds/Sample2_Group2_SeuratObj_sketch.rds"))
-    fname = "/home/ybae/KIDS2/test_annoated.rds"
-
-    if (!file.exists(fname)){
-        fname = "~/test_annoated.rds"
-    }
-    readRDS(fname)
+    readRDS("/home/ybae/KIDS2/test_annoated.rds")
   })
   
 
@@ -181,8 +191,6 @@ server <- function(input, output) {
   })
   
   output$qc_histogram = renderPlot({
-    req(seurat_object())
-    req(input$gene)
     obj = seurat_object()
     Idents(obj) = "CelltypePrediction"
     RidgePlot(obj, features = input$gene, ncol = 2, layer = 'counts') & xlab("")
@@ -219,13 +227,39 @@ server <- function(input, output) {
   #   print(annotate_seurat())
   # })
   
+  # 6. visualization #
+  output$cell_annotation_split <- renderPlot({
+    obj = seurat_object()
+    Idents(obj) = "CelltypePrediction"
+    ImageDimPlot(obj, fov = c('Sample2_Group2'), size = 0.7, split.by = 'CelltypePrediction', coord.fixed = F, dark.background = F)
+  })
+  
   output$cell_annotation <- renderPlotly({
     plot <- ImageDimPlot(seurat_object(), fov = c('Sample2_Group2'), size = 0.3, group.by = 'CelltypePrediction', coord.fixed = T, dark.background = F)
     ggplotly(plot)
-    
   })
   
-  
+  # 7. stst #
+  output$stat <- renderPlot({
+    obj <- seurat_object()
+    meta = data.frame(table(obj$CelltypePrediction))
+    meta <- meta[-1,]
+    colnames(meta) = c("CelltypePrediction", "ncells_celltype")
+    meta$sample = "Sample2_Group2"
+    meta$propCells <- meta$ncells_celltype / sum(meta$ncells_celltype)
+    # sum(Smp_1_cellfreq$propCells) == 1 # TRUE
+    ggplot(meta, aes(x=sample, y=propCells, fill=CelltypePrediction)) +
+      #  scale_fill_manual(values = jet.colors(length(unique(propCells_df$celltype_cat))), name="Cell types") +
+      geom_bar(stat="identity") +
+      labs(x="Sample", y="Cell Proportion") +
+      theme(axis.title.x = element_text(colour="black", size = 12, vjust=-1),
+            axis.title.y = element_text(colour="black", size = 12),
+            axis.text.x = element_text(size = 12)) +
+      ggtitle("Group1") + 
+      coord_fixed()
+    
+  })
+
 
 }
 
